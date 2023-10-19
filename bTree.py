@@ -32,24 +32,22 @@ class _NoB(object):
             if pai_index:
                 irmao_esquerda = pai.filhos[pai_index - 1]
                 if len(irmao_esquerda.chaves) < self.arvore.ordem:
-                    self.lateral(
-                            pai, pai_index, irmao_esquerda, pai_index - 1)
+                    self.lateral(pai, pai_index, irmao_esquerda, pai_index - 1)
                     return
             if pai_index + 1 < len(pai.filhos):
                 irmao_direita = pai.filhos[pai_index + 1]
                 if len(irmao_direita.chaves) < self.arvore.ordem:
-                    self.lateral(
-                            pai, pai_index, irmao_direita, pai_index + 1)
+                    self.lateral(pai, pai_index, irmao_direita, pai_index + 1)
                     return
 
-        sibling, push = self.split()
+        irmao, push = self.dividir()
 
         if not pai:
             pai, pai_index = self.arvore.RAMO(
                     self.arvore, filhos=[self]), 0
             self.arvore._raiz = pai
         pai.chaves.insert(pai_index, push)
-        pai.filhos.insert(pai_index + 1, sibling)
+        pai.filhos.insert(pai_index + 1, irmao)
         if len(pai.chaves) > pai.arvore.ordem:
             pai.encolher(ancestrais)
 
@@ -92,16 +90,16 @@ class _NoB(object):
             elif not pai.chaves:
                 self.arvore._raiz = irmao_esquerda or self
 
-    def split(self):
+    def dividir(self):
         center = len(self.chaves) // 2
         median = self.chaves[center]
-        sibling = type(self)(
+        irmao = type(self)(
                 self.arvore,
                 self.chaves[center + 1:],
                 self.filhos[center + 1:])
         self.chaves = self.chaves[:center]
         self.filhos = self.filhos[:center + 1]
-        return sibling, median
+        return irmao, median
 
     def inserir(self, index, item, ancestrais):
         self.chaves.insert(index, item)
@@ -126,8 +124,7 @@ class _NoB(object):
             ancestrais_adicionais = [(self, index)]
             descendentes = self.filhos[index]
             while descendentes.filhos:
-                ancestrais_adicionais.append(
-                        (descendentes, len(descendentes.filhos) - 1))
+                ancestrais_adicionais.append((descendentes, len(descendentes.filhos) - 1))
                 descendentes = descendentes.filhos[-1]
             ancestrais.extend(ancestrais_adicionais)
             self.chaves[index] = descendentes.chaves[-1]
@@ -144,7 +141,17 @@ class ArvoreB(object):
         self.ordem = ordem
         self._raiz = self._ultimo = self.FOLHA(self)
 
-    def _path_to(self, item):
+    def inserir(self, item):
+        ancestrais = self._caminho_ate(item)
+        node, index = ancestrais[-1]
+        while getattr(node, "filhos", None):
+            node = node.filhos[index]
+            index = bisect.bisect_left(node.chaves, item)
+            ancestrais.append((node, index))
+        node, index = ancestrais.pop()
+        node.inserir(index, item, ancestrais)
+
+    def _caminho_ate(self, item):
         atual = self._raiz
         ancestral = []
 
@@ -162,29 +169,19 @@ class ArvoreB(object):
         presente = presente and atual.chaves[index] == item
 
         return ancestral
-
-    def _presente(self, item, ancestrais):
-        last, index = ancestrais[-1]
-        return index < len(last.chaves) and last.chaves[index] == item
-
-    def inserir(self, item):
-        ancestrais = self._path_to(item)
-        node, index = ancestrais[-1]
-        while getattr(node, "filhos", None):
-            node = node.filhos[index]
-            index = bisect.bisect_left(node.chaves, item)
-            ancestrais.append((node, index))
-        node, index = ancestrais.pop()
-        node.inserir(index, item, ancestrais)
-
+    
     def remover(self, item):
-        ancestrais = self._path_to(item)
+        ancestrais = self._caminho_ate(item)
 
         if self._presente(item, ancestrais):
             node, index = ancestrais.pop()
             node.remover(index, ancestrais)
         else:
             raise ValueError("%r not in %s" % (item, self.__class__.__name__))
+
+    def _presente(self, item, ancestrais):
+        ultimo, index = ancestrais[-1]
+        return index < len(ultimo.chaves) and ultimo.chaves[index] == item
 
     def __repr__(self):
         def recurse(node, accum, depth):
@@ -197,30 +194,35 @@ class ArvoreB(object):
         return "\n".join(accum)
 
 
-import random
+# import random
 
-arvoreB = ArvoreB(5)
-for i in range(0,50):
-    arvoreB.inserir(random.randrange(1000))
+arvoreB = ArvoreB(2)
 
-# arvoreB.inserir(100)
-# print('\n', arvoreB)
-# arvoreB.inserir(10)
-# print('\n', arvoreB)
-# arvoreB.inserir(200)
-# print('\n', arvoreB)
-# arvoreB.inserir(50)
-# print('\n', arvoreB)
-# arvoreB.inserir(150)
-# print('\n', arvoreB)
-# arvoreB.inserir(30)
-# print('\n', arvoreB)
-# arvoreB.inserir(130)
-# print('\n', arvoreB)
-# arvoreB.inserir(1)
-# print('\n', arvoreB)
-# arvoreB.inserir(199)
-# print('\n', arvoreB)
-# arvoreB.remover(1)
+# for i in range(0,20):
+#     valor = random.randrange(1000)
+#     arvoreB.inserir(valor)
+#     print('\nVALOR INSERIDO: ', valor)
+#     print('ARVORE:\n', arvoreB)
 
-print('\n', arvoreB)
+arvoreB.inserir(100)
+print('\nINSERE 100:\n', arvoreB)
+arvoreB.inserir(10)
+print('\nINSERE 10:\n', arvoreB)
+arvoreB.inserir(200)
+print('\nINSERE 200:\n', arvoreB)
+arvoreB.inserir(50)
+print('\nINSERE 50:\n', arvoreB)
+arvoreB.inserir(150)
+print('\nINSERE 150:\n', arvoreB)
+arvoreB.inserir(30)
+print('\nINSERE 30:\n', arvoreB)
+arvoreB.inserir(130)
+print('\nINSERE 130:\n', arvoreB)
+arvoreB.inserir(1)
+print('\nINSERE 1:\n', arvoreB)
+arvoreB.inserir(199)
+print('\nINSERE 199:\n', arvoreB)
+arvoreB.remover(1)
+print('\nREMOVE 1:\n', arvoreB)
+arvoreB.remover(10)
+print('\nREMOVE 10:\n', arvoreB)
